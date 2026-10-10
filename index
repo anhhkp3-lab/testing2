@@ -1,0 +1,816 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Sen Ướp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600&family=Fraunces:ital,opsz,wght@0,9..144,300..500;1,9..144,300..500&display=swap">
+<style>
+/* Layout concept: one fixed WebGL canvas behind five scrolling story sections.
+   The 3D object swaps sides with the text panel; the page colour follows the hours of the lotus (pond night, dawn, jade, night again). */
+:root{
+  --pond:#10292b;
+  --dawn:#efd2cb;
+  --jade:#d3e2d5;
+  --lotus:#e2809d;
+  --gold:#e0b862;
+  --plum:#a43d63;
+  --ink-dark:#2e1a26;
+  --ink-pale:#f1e8dc;
+  --bg:#10292b;
+  --chrome-ink:#f1e8dc;
+  --chrome-bg:rgba(8,24,25,.55);
+  --font-display:'Fraunces', Georgia, 'Times New Roman', serif;
+  --font-body:'Be Vietnam Pro', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --gutter:clamp(16px,5vw,64px);
+  --H:140svh;
+}
+html[data-tone="light"]{--chrome-ink:#2e1a26;--chrome-bg:rgba(255,246,242,.66)}
+
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink-pale);font-family:var(--font-body);font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased;overflow-x:clip}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+.light :focus-visible{outline-color:var(--plum)}
+
+#gl{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:0;pointer-events:none}
+.no-gl #gl{display:none}
+.nogl-note{display:none;margin:0 0 16px;font-size:.85rem;opacity:.8}
+.no-gl .nogl-note{display:block}
+
+/* top bar */
+.top{position:fixed;top:0;left:0;right:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:calc(14px + env(safe-area-inset-top,0px)) var(--gutter) 14px;pointer-events:none}
+.top>*{pointer-events:auto}
+.logo{font-family:var(--font-display);font-style:italic;font-weight:400;font-size:1.45rem;letter-spacing:.01em;text-decoration:none;color:var(--chrome-ink);transition:color .3s}
+.links{display:flex;gap:2px;padding:4px;background:var(--chrome-bg);border-radius:3px;transition:background-color .3s}
+.links a{padding:8px 14px;font-size:.85rem;font-weight:500;text-decoration:none;color:var(--chrome-ink);border-radius:2px;transition:color .3s}
+.links a:hover{text-decoration:underline;text-underline-offset:4px}
+
+/* right rail */
+.rail{position:fixed;right:22px;top:50%;transform:translateY(-50%);z-index:5;display:flex;flex-direction:column;gap:16px;color:var(--chrome-ink);transition:color .3s}
+.rail a{width:9px;height:9px;border:1.5px solid currentColor;border-radius:50%;display:block}
+.rail a[aria-current="true"]{background:currentColor}
+
+main{position:relative;z-index:1}
+.scene{height:var(--H);display:flex;align-items:center;padding-inline:var(--gutter);scroll-margin-top:calc((var(--H) - 100svh) / -2)}
+.scene.left{justify-content:flex-start}
+.scene.right{justify-content:flex-end}
+
+.eyebrow{margin:0 0 14px;font-size:.72rem;font-weight:500;line-height:1.4;letter-spacing:.18em;text-transform:uppercase;color:var(--gold)}
+.light .eyebrow{color:var(--plum)}
+h1,h2{margin:0;font-family:var(--font-display);text-wrap:balance}
+h1{font-weight:300;font-size:clamp(2.7rem,7.2vw,5.6rem);line-height:1.02;letter-spacing:-.02em;margin-bottom:.32em}
+h2{font-weight:340;font-size:clamp(1.9rem,3.5vw,2.7rem);line-height:1.1;margin-bottom:16px}
+p{margin:0 0 14px}
+p:last-child{margin-bottom:0}
+
+/* hero */
+.hero{align-items:flex-end;padding-bottom:12svh}
+.hero .copy{width:min(620px,100%);text-shadow:0 1px 22px rgba(6,20,21,.6)}
+.hero .lede{font-size:1.08rem;max-width:44ch;margin-bottom:26px}
+.actions{display:flex;flex-wrap:wrap;gap:12px}
+
+/* panels */
+.panel{width:min(440px,100%);padding:clamp(22px,3vw,34px);border-radius:4px}
+.panel.light{background:rgba(250,240,236,.82);color:var(--ink-dark);border:1px solid rgba(46,26,38,.14)}
+.panel.dark{background:rgba(9,28,29,.76);color:var(--ink-pale);border:1px solid rgba(241,232,220,.16)}
+
+.specs{display:grid;grid-template-columns:1fr 1fr;gap:16px 20px;margin:22px 0 0;padding-top:20px;border-top:1px solid rgba(241,232,220,.2)}
+.specs dt{font-size:.68rem;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+.specs dd{margin:2px 0 0;font-family:var(--font-display);font-size:1.4rem;font-weight:330;line-height:1.2}
+
+.price{display:flex;align-items:baseline;gap:10px;margin:0 0 18px;font-family:var(--font-display);font-size:clamp(2.3rem,5vw,3.1rem);font-weight:300;line-height:1}
+.price small{font-family:var(--font-body);font-size:.85rem;opacity:.75}
+.buy{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:14px}
+.qty{display:inline-flex;align-items:center;border:1px solid rgba(241,232,220,.4);border-radius:2px}
+.qty button{width:44px;height:44px;border:0;background:transparent;color:inherit;font-size:1.2rem;cursor:pointer}
+.qty button:hover{background:rgba(241,232,220,.12)}
+.qty input{width:44px;height:44px;border:0;background:transparent;color:inherit;font:500 1rem var(--font-body);text-align:center;-moz-appearance:textfield}
+.qty input::-webkit-outer-spin-button,.qty input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.total{margin:0 0 16px;font-size:.92rem;opacity:.85}
+.fine{margin-top:18px;font-size:.78rem;line-height:1.5;opacity:.7}
+
+.btn{display:inline-flex;align-items:center;min-height:44px;padding:0 22px;border-radius:2px;border:1px solid transparent;background:var(--lotus);color:#2a0f1a;font:600 .92rem var(--font-body);letter-spacing:.02em;text-decoration:none;cursor:pointer;text-shadow:none}
+.btn:hover{background:#eb94ac}
+.btn.ghost{background:transparent;color:inherit;border-color:currentColor}
+.btn.ghost:hover{background:rgba(241,232,220,.12)}
+
+.toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:8;max-width:min(92vw,460px);padding:12px 18px;border-radius:3px;background:var(--ink-pale);color:var(--ink-dark);font-size:.9rem;line-height:1.45;box-shadow:0 8px 30px rgba(0,0,0,.3);opacity:0;visibility:hidden;transition:opacity .25s,visibility .25s}
+.toast.show{opacity:1;visibility:visible}
+
+@media (max-width:900px){
+  .rail{display:none}
+}
+@media (max-width:760px){
+  :root{--H:130svh}
+  .scene{align-items:flex-end;padding-bottom:calc((var(--H) - 100svh) / 2 + 6svh)}
+  .hero{padding-bottom:6svh}
+  .links a:not(.cta-link){display:none}
+  .panel{width:100%;padding:20px 20px 22px;font-size:.95rem}
+  h2{font-size:1.75rem;margin-bottom:12px}
+  .specs{margin-top:16px;padding-top:16px;gap:12px 16px}
+  .specs dd{font-size:1.2rem}
+  .price{margin-bottom:14px}
+  .fine{margin-top:12px}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *{transition-duration:.01ms!important}
+}
+</style>
+
+<canvas id="gl" aria-hidden="true"></canvas>
+
+<header class="top">
+  <a class="logo" href="#dau" aria-label="Sen Ướp, về đầu trang">Sen Ướp</a>
+  <nav class="links" aria-label="Các phần của trang">
+    <a href="#bong">Bông sen</a>
+    <a href="#la">Lá trà</a>
+    <a href="#hop">Hộp trà</a>
+    <a class="cta-link" href="#dat">Đặt hàng</a>
+  </nav>
+</header>
+
+<nav class="rail" aria-label="Tiến trình trang">
+  <a href="#dau" aria-label="Mở đầu"></a>
+  <a href="#bong" aria-label="Bông sen nở"></a>
+  <a href="#la" aria-label="Lá trà vào hoa"></a>
+  <a href="#hop" aria-label="Hộp trà"></a>
+  <a href="#dat" aria-label="Đặt hàng"></a>
+</nav>
+
+<main>
+  <section class="scene hero left" id="dau" style="--H:100svh">
+    <div class="copy">
+      <p class="nogl-note">Trình duyệt này chưa bật được đồ hoạ 3D. Nội dung bên dưới vẫn đọc bình thường.</p>
+      <p class="eyebrow">Trà xanh ướp sen · Mẻ nhỏ</p>
+      <h1>Một đêm trong lòng bông sen.</h1>
+      <p class="lede">Lá trà nằm trong cánh sen khép từ chiều. Sáng hôm sau, trà mang theo hương của hoa.</p>
+      <div class="actions">
+        <a class="btn" href="#hop">Xem hộp trà</a>
+        <a class="btn ghost" href="#bong">Xem sen nở</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="scene right" id="bong">
+    <div class="panel light">
+      <p class="eyebrow">05:30 · Rạng sáng</p>
+      <h2>Sen nở khi trời vừa hửng.</h2>
+      <p>Cánh sen hé dần từ sáng sớm và khép lại khi chiều xuống. Người ướp trà chọn đúng lúc bông còn tươi, hương đang đầy.</p>
+    </div>
+  </section>
+
+  <section class="scene left" id="la">
+    <div class="panel light">
+      <p class="eyebrow">17:00 đến 06:00 · Ướp qua đêm</p>
+      <h2>Lá trà nằm lại với hương.</h2>
+      <p>Lá trà được rải vào giữa bông sen, rồi cánh khép lại. Qua đêm, trà hút hương từ nhụy và cánh hoa.</p>
+      <p>Mẻ nào cũng ướp lặp lại cho đủ thơm.</p>
+    </div>
+  </section>
+
+  <section class="scene right" id="hop">
+    <div class="panel dark">
+      <p class="eyebrow">06:00 · Sáng hôm sau</p>
+      <h2>Sấy nhẹ, rồi vào hộp.</h2>
+      <p>Cánh hoa được nhặt bỏ, trà sấy nhẹ để giữ hương, rồi cất vào hộp sứ men ngọc, nắp đồng. Mở nắp ra là thấy mùi sen.</p>
+      <dl class="specs">
+        <div><dt>Hộp</dt><dd>100 g</dd></div>
+        <div><dt>Pha</dt><dd>3 g cho 200 ml</dd></div>
+        <div><dt>Nước</dt><dd>80 °C</dd></div>
+        <div><dt>Hãm</dt><dd>3 lần</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="scene left" id="dat" style="--H:115svh">
+    <div class="panel dark">
+      <p class="eyebrow">Mẻ tháng 10</p>
+      <h2>Hộp đầu tiên cho bạn.</h2>
+      <p class="price"><span id="price">285.000 ₫</span><small>hộp 100 g</small></p>
+      <form id="order" class="order">
+        <div class="buy">
+          <div class="qty">
+            <button type="button" id="qtyMinus" aria-label="Giảm số lượng">−</button>
+            <input id="qty" type="number" inputmode="numeric" min="1" max="9" value="1" aria-label="Số hộp">
+            <button type="button" id="qtyPlus" aria-label="Tăng số lượng">+</button>
+          </div>
+          <button class="btn" type="submit">Thêm vào giỏ</button>
+        </div>
+        <p class="total" id="total">Tạm tính: 285.000 ₫</p>
+        <button class="btn ghost" type="button" id="lidBtn" aria-pressed="false">Mở nắp hộp</button>
+      </form>
+      <p class="fine">Sen Ướp là thương hiệu hư cấu. Đây là trang demo hiệu ứng 3D, chưa bán hàng thật.</p>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var root = document.documentElement;
+  var reduce = false;
+  try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+
+  /* ---------- helpers ---------- */
+  function clamp(x, a, b) { return x < a ? a : (x > b ? b : x); }
+  function ss(x) { return x * x * (3 - 2 * x); }
+  function kf(t, pts) {
+    if (t <= pts[0][0]) return pts[0][1];
+    for (var i = 1; i < pts.length; i++) {
+      if (t <= pts[i][0]) {
+        var a = pts[i - 1], b = pts[i];
+        var u = ss((t - a[0]) / (b[0] - a[0]));
+        return a[1] + (b[1] - a[1]) * u;
+      }
+    }
+    return pts[pts.length - 1][1];
+  }
+  function kfRGB(t, pts) {
+    if (t <= pts[0][0]) return pts[0][1];
+    for (var i = 1; i < pts.length; i++) {
+      if (t <= pts[i][0]) {
+        var a = pts[i - 1], b = pts[i];
+        var u = ss((t - a[0]) / (b[0] - a[0]));
+        return [a[1][0] + (b[1][0] - a[1][0]) * u, a[1][1] + (b[1][1] - a[1][1]) * u, a[1][2] + (b[1][2] - a[1][2]) * u];
+      }
+    }
+    return pts[pts.length - 1][1];
+  }
+  var rs = 1234567;
+  function rnd() { rs = (rs * 16807) % 2147483647; return (rs - 1) / 2147483646; }
+
+  /* ---------- story timeline (t = section index + progress; section i is centred at i + 0.5) ---------- */
+  var bgStops = [
+    [0.5, [16, 41, 43]], [1.05, [16, 41, 43]], [1.5, [239, 210, 203]], [1.9, [243, 220, 210]],
+    [2.35, [211, 226, 213]], [2.95, [205, 222, 208]], [3.45, [20, 49, 47]], [4.5, [15, 38, 40]]
+  ];
+  var bloomKF = [[0.5, 0], [0.95, 0.02], [1.55, 1], [2.1, 1], [2.6, 0.42], [2.9, 0.38]];
+  var rainKF = [[1.85, 0], [2.55, 1]];
+  var aScaleKF = [[2.8, 1], [3.1, 0]];
+  var sinkKF = [[2.9, 0], [3.25, -7]];
+  var pondKF = [[0.5, 1], [2.6, 1], [3.0, 0]];
+  var jarYKF = [[3.0, -6.5], [3.5, 0]];
+  var jarRotKF = [[3.5, 0], [4.5, -0.5]];
+  var openKF = [[3.0, 0], [3.45, 1], [3.9, 1], [4.25, 0]];
+  var userKF = [[4.0, 0], [4.4, 1]];
+  var camAz = [[0.5, -0.22], [1.5, 0.38], [2.5, 1.05], [3.5, 0.12], [4.5, -0.55]];
+  var camEl = [[0.5, 0.09], [1.5, 0.40], [2.5, 0.80], [3.5, 0.22], [4.5, 0.16]];
+  var camDist = [[0.5, 9.6], [1.5, 8.2], [2.5, 6.4], [3.5, 8.4], [4.5, 8.8]];
+  var camTy = [[0.5, 2.0], [1.5, 2.0], [2.5, 1.5], [3.5, 1.3], [4.5, 1.3]];
+  var shiftKF = [[0.5, 0.17], [1.5, -0.17], [2.5, 0.17], [3.5, -0.17], [4.5, 0.17]];
+  var glowA = [[0.5, 0.22], [1.5, 0.75], [2.5, 0.45], [3.5, 0.35], [4.5, 0.3]];
+  var glowC = [[0.5, [127, 193, 184]], [1.5, [255, 211, 180]], [2.5, [246, 255, 240]], [3.5, [255, 194, 125]], [4.5, [255, 194, 125]]];
+
+  /* ---------- page chrome (background colour, tone, rail) ---------- */
+  var sections = [].slice.call(document.querySelectorAll('.scene'));
+  var railLinks = [].slice.call(document.querySelectorAll('.rail a'));
+  var tops = [], hs = [];
+  function scrollY() { return window.scrollY || window.pageYOffset || 0; }
+  function measure() {
+    var sy = scrollY();
+    tops = sections.map(function (s) { return s.getBoundingClientRect().top + sy; });
+    hs = sections.map(function (s) { return s.offsetHeight || 1; });
+  }
+  function getT() {
+    var yc = scrollY() + window.innerHeight / 2;
+    var i = 0;
+    for (var k = 0; k < tops.length; k++) { if (yc >= tops[k]) i = k; }
+    return i + clamp((yc - tops[i]) / hs[i], 0, 1);
+  }
+  var tone = 'dark', lastCss = '', lastIdx = -1;
+  function applyChrome(t) {
+    var c = kfRGB(t, bgStops);
+    var css = 'rgb(' + Math.round(c[0]) + ',' + Math.round(c[1]) + ',' + Math.round(c[2]) + ')';
+    if (css !== lastCss) { root.style.setProperty('--bg', css); lastCss = css; }
+    var L = (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) / 255;
+    if (tone === 'dark' && L > 0.55) tone = 'light';
+    else if (tone === 'light' && L < 0.42) tone = 'dark';
+    if (root.getAttribute('data-tone') !== tone) root.setAttribute('data-tone', tone);
+    var idx = clamp(Math.floor(t), 0, railLinks.length - 1);
+    if (idx !== lastIdx) {
+      railLinks.forEach(function (a, n) { if (n === idx) a.setAttribute('aria-current', 'true'); else a.removeAttribute('aria-current'); });
+      lastIdx = idx;
+    }
+    return L;
+  }
+
+  /* ---------- 3D scene ---------- */
+  var userLid = 0;
+  var G = null;
+
+  function initScene() {
+    var canvas = document.getElementById('gl');
+    if (!window.THREE) throw new Error('three.js not loaded');
+    var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
+    renderer.setClearColor(0x000000, 0);
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    var narrow = window.innerWidth < 760;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, narrow ? 1.75 : 2));
+
+    function C(hex) { return new THREE.Color(hex).convertSRGBToLinear(); }
+    function V2(x, y) { return new THREE.Vector2(x, y); }
+
+    var scene = new THREE.Scene();
+    var camera = new THREE.PerspectiveCamera(36, 1, 0.1, 120);
+    scene.add(camera);
+
+    /* environment map built from a gradient dome and a few bright panels */
+    (function () {
+      var es = new THREE.Scene();
+      var sg = new THREE.SphereGeometry(40, 32, 16);
+      var p = sg.attributes.position, cols = [];
+      for (var i = 0; i < p.count; i++) {
+        var y = p.getY(i) / 40, c;
+        if (y > 0) c = C(0x2a4a48).lerp(C(0xffe7da), Math.pow(y, 0.8));
+        else c = C(0x10292b).lerp(C(0x2a4a48), 1 + y);
+        cols.push(c.r, c.g, c.b);
+      }
+      sg.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+      es.add(new THREE.Mesh(sg, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide })));
+      function panel(w, h, pos, rgb) {
+        var m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(rgb[0], rgb[1], rgb[2]), side: THREE.DoubleSide }));
+        m.position.set(pos[0], pos[1], pos[2]);
+        m.lookAt(0, 0, 0);
+        es.add(m);
+      }
+      panel(16, 9, [11, 13, 9], [7, 6, 5]);
+      panel(3, 14, [-12, 3, 7], [3.4, 3.2, 3.0]);
+      panel(3, 14, [13, 3, 4], [3.0, 2.8, 2.6]);
+      panel(10, 12, [-15, 5, -4], [3.2, 1.7, 2.2]);
+      panel(24, 3, [0, 9, -15], [2.4, 3, 3]);
+      panel(6, 6, [0, -6, 12], [0.9, 1.2, 1.1]);
+      var pm = new THREE.PMREMGenerator(renderer);
+      scene.environment = pm.fromScene(es, 0.03).texture;
+      pm.dispose();
+    })();
+
+    /* lights */
+    var key = new THREE.DirectionalLight(C(0xffe3c9), 1.5); key.position.set(5, 9, 6); scene.add(key);
+    key.castShadow = true;
+    key.shadow.mapSize.set(1024, 1024);
+    key.shadow.camera.left = -5; key.shadow.camera.right = 5; key.shadow.camera.top = 6; key.shadow.camera.bottom = -4;
+    key.shadow.camera.near = 1; key.shadow.camera.far = 30;
+    key.shadow.bias = -0.0008; key.shadow.normalBias = 0.02;
+    var rim = new THREE.DirectionalLight(C(0xffa9c4), 1.0); rim.position.set(-6, 4, -7); scene.add(rim);
+    scene.add(new THREE.HemisphereLight(C(0xbfe3dc), C(0x0e2a2b), 0.45));
+
+    function radialTex(stops) {
+      var cv = document.createElement('canvas'); cv.width = cv.height = 256;
+      var c = cv.getContext('2d');
+      var g = c.createRadialGradient(128, 128, 0, 128, 128, 128);
+      stops.forEach(function (s) { g.addColorStop(s[0], s[1]); });
+      c.fillStyle = g; c.fillRect(0, 0, 256, 256);
+      var t = new THREE.CanvasTexture(cv);
+      t.encoding = THREE.sRGBEncoding;
+      return t;
+    }
+    var softTex = radialTex([[0, 'rgba(255,255,255,1)'], [0.4, 'rgba(255,255,255,.45)'], [1, 'rgba(255,255,255,0)']]);
+
+    /* sky glow, parented to the camera so it always sits behind the subject */
+    var glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: softTex, transparent: true, depthWrite: false, opacity: 0.3 }));
+    glow.position.set(0, 0, -45); glow.scale.set(90, 90, 1);
+    camera.add(glow);
+
+    /* ---------- pond ---------- */
+    var pond = new THREE.Group(); scene.add(pond);
+    var pondU = {
+      uTime: { value: 0 }, uAlpha: { value: 1 },
+      uTint: { value: new THREE.Color(0.17, 0.40, 0.38) }, uRing: { value: new THREE.Color(0.75, 0.89, 0.86) }
+    };
+    var water = new THREE.Mesh(new THREE.CircleGeometry(14, 64), new THREE.ShaderMaterial({
+      uniforms: pondU, transparent: true, depthWrite: false,
+      vertexShader: 'varying vec2 vP; void main(){ vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+      fragmentShader: [
+        'varying vec2 vP; uniform float uTime; uniform float uAlpha; uniform vec3 uTint; uniform vec3 uRing;',
+        'void main(){',
+        '  float d = length(vP);',
+        '  float fade = 1.0 - smoothstep(5.0, 13.0, d);',
+        '  float ring = 0.0;',
+        '  for (int k = 0; k < 4; k++) {',
+        '    float ph = fract(uTime * 0.09 + float(k) * 0.25);',
+        '    float r = 0.35 + ph * 9.5;',
+        '    float w = 0.06 + ph * 0.22;',
+        '    ring += smoothstep(w, 0.0, abs(d - r)) * (1.0 - ph) * (1.0 - ph);',
+        '  }',
+        '  float a = fade * 0.42 + ring * 0.5 * fade;',
+        '  vec3 col = mix(uTint, uRing, clamp(ring * 1.4, 0.0, 1.0));',
+        '  gl_FragColor = vec4(col, clamp(a, 0.0, 1.0) * uAlpha);',
+        '}'
+      ].join('\n')
+    }));
+    water.rotation.x = -Math.PI / 2; water.position.y = -0.01;
+    pond.add(water);
+    var pondShadowMat = new THREE.ShadowMaterial({ opacity: 0.3, depthWrite: false });
+    var pondCatch = new THREE.Mesh(new THREE.CircleGeometry(8, 48), pondShadowMat);
+    pondCatch.rotation.x = -Math.PI / 2; pondCatch.position.y = 0.02; pondCatch.receiveShadow = true;
+    pond.add(pondCatch);
+
+    var padMat = new THREE.MeshStandardMaterial({ color: C(0x3f7a56), roughness: 0.55, side: THREE.DoubleSide });
+    var pads = [];
+    for (var pi = 0; pi < 8; pi++) {
+      var r = 0.55 + rnd() * 0.6;
+      var pad = new THREE.Mesh(new THREE.CircleGeometry(r, 28, 0.35, Math.PI * 2 - 0.7), padMat);
+      var ang = rnd() * Math.PI * 2, rad = 2.4 + rnd() * 5.5;
+      pad.rotation.x = -Math.PI / 2; pad.rotation.z = rnd() * 6.28;
+      pad.position.set(Math.sin(ang) * rad, 0.01, Math.cos(ang) * rad);
+      pond.add(pad);
+      pads.push({ m: pad, ph: rnd() * 6.28 });
+    }
+
+    /* ---------- lotus ---------- */
+    var lotusG = new THREE.Group(); lotusG.position.y = 1.0; scene.add(lotusG);
+
+    var layers = [
+      { n: 9, len: 2.25, w: 0.78, cup: 0.20, curl: 0.30, open: 1.32, delay: 0.0, r0: 0.30, off: 0.0, tipR: 0.05, c: [0xeee6cc, 0xf0aec2, 0xd2527b] },
+      { n: 8, len: 2.05, w: 0.72, cup: 0.20, curl: 0.26, open: 1.00, delay: 0.1, r0: 0.26, off: 0.35, tipR: 0.05, c: [0xf3e7c6, 0xf4b8c9, 0xda6489] },
+      { n: 7, len: 1.75, w: 0.62, cup: 0.18, curl: 0.20, open: 0.70, delay: 0.2, r0: 0.22, off: 0.10, tipR: 0.04, c: [0xf6e3b6, 0xf7c3cf, 0xe27f9f] },
+      { n: 5, len: 1.30, w: 0.50, cup: 0.14, curl: 0.10, open: 0.38, delay: 0.3, r0: 0.17, off: 0.50, tipR: 0.03, c: [0xf9de9b, 0xfacdd0, 0xf1a0b4] }
+    ];
+
+    function petalGeo(L) {
+      var g = new THREE.PlaneGeometry(1, 1, 8, 16);
+      var p = g.attributes.position, n = p.count, col = new Float32Array(n * 3);
+      var cb = C(L.c[0]), cm = C(L.c[1]), ct = C(L.c[2]), edge = C(0xc8406b), tmp = new THREE.Color();
+      for (var i = 0; i < n; i++) {
+        var u = p.getX(i) * 2, v = p.getY(i) + 0.5;
+        var w = Math.pow(Math.max(0, Math.sin(Math.PI * Math.pow(v, 0.7))), 0.8) * 0.92 + 0.14 * (1 - v);
+        p.setXYZ(i, u * 0.5 * L.w * w, v * L.len, L.cup * (1 - u * u) * Math.min(1, w * 1.6) + L.curl * v * v);
+        if (v < 0.38) tmp.copy(cb).lerp(cm, v / 0.38); else tmp.copy(cm).lerp(ct, (v - 0.38) / 0.62);
+        tmp.lerp(edge, Math.pow(Math.abs(u), 3) * 0.18 * v);
+        col[i * 3] = tmp.r; col[i * 3 + 1] = tmp.g; col[i * 3 + 2] = tmp.b;
+      }
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      g.computeVertexNormals();
+      return g;
+    }
+    /* fine veins running along each petal, used as colour modulation and as a faint bump */
+    var veinTex = (function () {
+      var cv = document.createElement('canvas'); cv.width = 256; cv.height = 512;
+      var c = cv.getContext('2d');
+      c.fillStyle = '#ffffff'; c.fillRect(0, 0, 256, 512);
+      for (var k = 0; k < 40; k++) {
+        var x0 = (k + 0.5) / 40 * 256, mid = k === 20 || k === 19;
+        c.strokeStyle = mid ? 'rgba(170,92,122,.5)' : 'rgba(176,100,130,' + (0.22 + rnd() * 0.22) + ')';
+        c.lineWidth = mid ? 2.4 : 1.1 + rnd() * 0.7;
+        c.beginPath(); c.moveTo(x0, 512);
+        for (var s = 1; s <= 16; s++) c.lineTo(x0 + Math.sin(s * 0.9 + k) * 1.6, 512 - s * 32);
+        c.stroke();
+      }
+      var t = new THREE.CanvasTexture(cv); t.encoding = THREE.sRGBEncoding;
+      return t;
+    })();
+    var petalMat = new THREE.MeshStandardMaterial({ vertexColors: true, map: veinTex, bumpMap: veinTex, bumpScale: 1.2, side: THREE.DoubleSide, roughness: 0.6, metalness: 0, emissive: C(0xd24f7a), emissiveIntensity: 0.1 });
+    var petals = [];
+    layers.forEach(function (L) {
+      L.closed = Math.asin(clamp(-((L.r0 + L.curl) - L.tipR) / L.len, -0.9, 0.9));
+      var geo = petalGeo(L);
+      for (var k = 0; k < L.n; k++) {
+        var holder = new THREE.Group();
+        holder.rotation.y = (k / L.n) * Math.PI * 2 + L.off + (rnd() - 0.5) * 0.12;
+        var pivot = new THREE.Group(); pivot.position.z = L.r0; holder.add(pivot);
+        var mesh = new THREE.Mesh(geo, petalMat);
+        mesh.scale.set(0.94 + rnd() * 0.12, 0.94 + rnd() * 0.1, 1);
+        mesh.castShadow = true;
+        pivot.add(mesh);
+        lotusG.add(holder);
+        petals.push({ pivot: pivot, L: L, jit: (rnd() - 0.5) * 0.1, twist: (rnd() - 0.5) * 0.25 });
+      }
+    });
+    function setBloom(b) {
+      for (var i = 0; i < petals.length; i++) {
+        var q = petals[i], L = q.L;
+        var e = ss(clamp((b - L.delay) / 0.7, 0, 1));
+        q.pivot.rotation.x = L.closed + (L.open - L.closed) * e + q.jit * e;
+        q.pivot.rotation.z = q.twist * e;
+      }
+    }
+
+    var stem = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 1.0, 10), new THREE.MeshStandardMaterial({ color: C(0x5f8a5a), roughness: 0.6 }));
+    stem.position.y = -0.5; lotusG.add(stem);
+    var pod = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.18, 0.32, 20), new THREE.MeshStandardMaterial({ color: C(0xa7c04f), roughness: 0.7 }));
+    pod.position.y = 0.18; lotusG.add(pod);
+
+    var stamens = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.012, 0.018, 1, 4), new THREE.MeshStandardMaterial({ color: C(0xf3cf5a), roughness: 0.6 }), 70);
+    (function () {
+      var d = new THREE.Object3D(); d.rotation.order = 'YXZ';
+      for (var i = 0; i < 70; i++) {
+        var a = rnd() * Math.PI * 2, rr = 0.15 + rnd() * 0.22, len = 0.35 + rnd() * 0.22, tilt = 0.12 + rnd() * 0.35;
+        d.position.set(Math.sin(a) * rr, 0.34 + len * 0.5, Math.cos(a) * rr);
+        d.rotation.set(tilt, a, 0); d.scale.set(1, len, 1);
+        d.updateMatrix(); stamens.setMatrixAt(i, d.matrix);
+      }
+    })();
+    lotusG.add(stamens);
+    var inner = new THREE.PointLight(C(0xffc98a), 0.2, 6); inner.position.set(0, 0.8, 0); lotusG.add(inner);
+
+    /* ---------- tea leaves ---------- */
+    var leafGeo = new THREE.SphereGeometry(1, 8, 6); leafGeo.scale(0.028, 0.02, 0.2);
+    var leafMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 });
+    var leafPalette = [0x5c7a3a, 0x6e8c44, 0x4a6a33, 0x86a352, 0x3d5a2e].map(C);
+    function leafMesh(n) {
+      var m = new THREE.InstancedMesh(leafGeo, leafMat, n);
+      m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      m.frustumCulled = false;
+      for (var i = 0; i < n; i++) m.setColorAt(i, leafPalette[Math.floor(rnd() * leafPalette.length)]);
+      m.instanceColor.needsUpdate = true;
+      return m;
+    }
+    var dummy = new THREE.Object3D();
+
+    var NA = 170, leavesA = leafMesh(NA), A = [];
+    lotusG.add(leavesA);
+    for (var ai = 0; ai < NA; ai++) {
+      var sp = rnd() * 6.28, sr = Math.sqrt(rnd()) * 2.4, ep = rnd() * 6.28, er = Math.sqrt(rnd()) * 0.55;
+      A.push({
+        sx: Math.cos(sp) * sr, sy: 4 + rnd() * 2.2, sz: Math.sin(sp) * sr,
+        ex: Math.cos(ep) * er, ey: 0.4 + rnd() * 0.4, ez: Math.sin(ep) * er,
+        d: rnd(), r0: [rnd() * 6, rnd() * 6, rnd() * 6], sp: [2 + rnd() * 3, 2 + rnd() * 3, 1 + rnd() * 2], s: 0.8 + rnd() * 0.5
+      });
+    }
+    function updateA(rain, vis, time) {
+      for (var i = 0; i < NA; i++) {
+        var a = A[i];
+        var q = clamp((rain - a.d * 0.55) / 0.45, 0, 1), e = ss(q);
+        var sway = (1 - e) * 0.14;
+        dummy.position.set(
+          a.sx + (a.ex - a.sx) * e + Math.sin(time * 1.1 + i) * sway,
+          a.sy + (a.ey - a.sy) * e,
+          a.sz + (a.ez - a.sz) * e + Math.cos(time * 0.9 + i) * sway);
+        dummy.rotation.set(a.r0[0] + q * a.sp[0], a.r0[1] + q * a.sp[1], a.r0[2] + q * a.sp[2]);
+        dummy.scale.setScalar(q > 0 ? a.s * vis : 0);
+        dummy.updateMatrix(); leavesA.setMatrixAt(i, dummy.matrix);
+      }
+      leavesA.instanceMatrix.needsUpdate = true;
+    }
+
+    /* ---------- tea jar ---------- */
+    var jarG = new THREE.Group(); jarG.position.y = -6.5; scene.add(jarG);
+    var outer = [V2(0, 0), V2(0.84, 0)].concat(new THREE.SplineCurve([
+      V2(0.84, 0), V2(0.98, 0.05), V2(1.06, 0.24), V2(1.10, 0.7), V2(1.10, 1.35), V2(1.04, 1.9), V2(0.90, 2.2), V2(0.84, 2.32)
+    ]).getPoints(40));
+    var prof = outer.concat([V2(0.86, 2.38), V2(0.80, 2.38), V2(0.78, 2.3), V2(0.78, 2.0), V2(0, 2.0)]);
+    /* celadon glaze: soft pooled colour and uneven gloss, painted on two canvases */
+    var glaze = (function () {
+      var S = 512;
+      var cv = document.createElement('canvas'); cv.width = cv.height = S;
+      var rv = document.createElement('canvas'); rv.width = rv.height = S;
+      var c = cv.getContext('2d'), r = rv.getContext('2d'), i, o;
+      c.fillStyle = '#a9c8b6'; c.fillRect(0, 0, S, S);
+      r.fillStyle = 'rgb(70,70,70)'; r.fillRect(0, 0, S, S);
+      for (i = 0; i < 220; i++) {
+        var x = rnd() * S, y = rnd() * S, rad = 30 + rnd() * 90, a = 0.035 + rnd() * 0.05, dark = rnd() < 0.5;
+        for (o = -1; o <= 1; o++) {
+          var g = c.createRadialGradient(x + o * S, y, 0, x + o * S, y, rad);
+          g.addColorStop(0, dark ? 'rgba(52,92,76,' + a + ')' : 'rgba(214,236,222,' + a + ')'); g.addColorStop(1, 'rgba(0,0,0,0)');
+          c.fillStyle = g; c.fillRect(x + o * S - rad, y - rad, rad * 2, rad * 2);
+          var h = r.createRadialGradient(x + o * S, y, 0, x + o * S, y, rad);
+          h.addColorStop(0, 'rgba(255,255,255,' + (a * 1.6) + ')'); h.addColorStop(1, 'rgba(255,255,255,0)');
+          r.fillStyle = h; r.fillRect(x + o * S - rad, y - rad, rad * 2, rad * 2);
+        }
+      }
+      for (i = 0; i < 1400; i++) {
+        c.fillStyle = 'rgba(40,70,58,' + (0.08 + rnd() * 0.1) + ')';
+        c.fillRect(rnd() * S, rnd() * S, 1 + rnd(), 1 + rnd());
+      }
+      var m = new THREE.CanvasTexture(cv); m.encoding = THREE.sRGBEncoding; m.wrapS = THREE.RepeatWrapping;
+      var rm = new THREE.CanvasTexture(rv); rm.wrapS = THREE.RepeatWrapping;
+      return { map: m, rough: rm };
+    })();
+    var jarMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, map: glaze.map, roughnessMap: glaze.rough, roughness: 1, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.15, side: THREE.DoubleSide });
+    var jarBody = new THREE.Mesh(new THREE.LatheGeometry(prof, 72), jarMat);
+    jarBody.castShadow = true; jarG.add(jarBody);
+
+    /* unglazed foot, gold neck band, contact shadow and ambient occlusion on the ground */
+    var foot = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.86, 0.07, 64), new THREE.MeshStandardMaterial({ color: C(0x9a7b62), roughness: 0.92 }));
+    foot.position.y = 0.035; jarG.add(foot);
+    var neckBand = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.022, 10, 72), new THREE.MeshStandardMaterial({ color: C(0xc9a35a), metalness: 1, roughness: 0.32 }));
+    neckBand.rotation.x = Math.PI / 2; neckBand.position.y = 2.3; jarG.add(neckBand);
+    var jarShadowMat = new THREE.ShadowMaterial({ opacity: 0.34, depthWrite: false });
+    var jarCatch = new THREE.Mesh(new THREE.CircleGeometry(6, 48), jarShadowMat);
+    jarCatch.rotation.x = -Math.PI / 2; jarCatch.position.y = 0.003; jarCatch.receiveShadow = true; jarG.add(jarCatch);
+    var aoDisc = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 3.6), new THREE.MeshBasicMaterial({
+      map: radialTex([[0, 'rgba(0,0,0,.6)'], [0.5, 'rgba(0,0,0,.28)'], [1, 'rgba(0,0,0,0)']]), transparent: true, depthWrite: false
+    }));
+    aoDisc.rotation.x = -Math.PI / 2; aoDisc.position.y = 0.005; jarG.add(aoDisc);
+
+    var mound = new THREE.Mesh(new THREE.SphereGeometry(0.78, 28, 10, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: C(0x3f5f31), roughness: 1 }));
+    mound.scale.set(1, 0.28, 1); mound.position.y = 2.0; jarG.add(mound);
+
+    var lid = new THREE.Group(); lid.position.y = 2.38; jarG.add(lid);
+    var goldMat = new THREE.MeshStandardMaterial({ color: C(0xc9a35a), metalness: 1, roughness: 0.32 });
+    var lidPts = new THREE.SplineCurve([V2(0, 0.37), V2(0.3, 0.36), V2(0.65, 0.31), V2(0.88, 0.2), V2(0.96, 0.06)]).getPoints(24)
+      .concat([V2(0.96, -0.04), V2(0.9, -0.06), V2(0.8, -0.04), V2(0, -0.04)]);
+    var lidMesh = new THREE.Mesh(new THREE.LatheGeometry(lidPts, 72), goldMat);
+    lidMesh.castShadow = true; lid.add(lidMesh);
+    [[0.965, 0.0, 0.025], [0.925, 0.12, 0.02]].forEach(function (rg) {
+      var ring = new THREE.Mesh(new THREE.TorusGeometry(rg[0], rg[2], 10, 72), goldMat);
+      ring.rotation.x = Math.PI / 2; ring.position.y = rg[1]; lid.add(ring);
+    });
+    var knob = new THREE.Mesh(new THREE.SphereGeometry(0.11, 20, 14), goldMat); knob.position.y = 0.43; lid.add(knob);
+
+    var labelTex = null;
+    (function () {
+      var cv = document.createElement('canvas'); cv.width = 1200; cv.height = 800;
+      var c = cv.getContext('2d');
+      function spaced(txt, x, y, sp) {
+        var w = 0, i; for (i = 0; i < txt.length; i++) w += c.measureText(txt[i]).width + sp;
+        w -= sp; var px = x - w / 2; c.textAlign = 'left';
+        for (i = 0; i < txt.length; i++) { c.fillText(txt[i], px, y); px += c.measureText(txt[i]).width + sp; }
+      }
+      function petal(a, s, color) {
+        c.save(); c.translate(600, 330); c.rotate(a); c.fillStyle = color; c.beginPath();
+        c.moveTo(0, 0); c.quadraticCurveTo(-34 * s, -70 * s, 0, -150 * s); c.quadraticCurveTo(34 * s, -70 * s, 0, 0); c.fill(); c.restore();
+      }
+      function draw() {
+        c.clearRect(0, 0, 1200, 800);
+        c.fillStyle = '#f3eee2'; c.fillRect(0, 0, 1200, 800);
+        for (var q = 0; q < 5000; q++) {
+          c.fillStyle = 'rgba(90,80,60,' + (0.02 + rnd() * 0.04) + ')';
+          c.fillRect(rnd() * 1200, rnd() * 800, 1 + rnd() * 2, 1);
+        }
+        c.strokeStyle = '#2f5a4d'; c.lineWidth = 5; c.strokeRect(36, 36, 1128, 728);
+        c.lineWidth = 2; c.strokeRect(54, 54, 1092, 692);
+        petal(-0.95, 0.8, '#e27e9d'); petal(0.95, 0.8, '#e27e9d');
+        petal(-0.48, 0.95, '#d4587f'); petal(0.48, 0.95, '#d4587f'); petal(0, 1.1, '#c9486f');
+        c.strokeStyle = '#2f5a4d'; c.lineWidth = 3; c.beginPath(); c.moveTo(430, 336); c.lineTo(770, 336); c.stroke();
+        c.fillStyle = '#24443c'; c.textAlign = 'center';
+        c.font = '300 150px Fraunces, Georgia, serif'; c.fillText('Sen Ướp', 600, 520);
+        c.font = '500 34px "Be Vietnam Pro", sans-serif'; spaced('TRÀ XANH ƯỚP SEN', 600, 590, 9);
+        c.font = 'italic 300 38px Fraunces, Georgia, serif'; c.textAlign = 'center'; c.fillText('Mẻ nhỏ · 100 g', 600, 665);
+      }
+      draw();
+      var tex = new THREE.CanvasTexture(cv);
+      tex.encoding = THREE.sRGBEncoding; tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      labelTex = tex;
+      if (document.fonts && document.fonts.load) {
+        Promise.all([document.fonts.load('300 40px Fraunces'), document.fonts.load('500 20px "Be Vietnam Pro"')])
+          .then(function () { draw(); tex.needsUpdate = true; }, function () {});
+      }
+      var span = 1.5;
+      var label = new THREE.Mesh(new THREE.CylinderGeometry(1.113, 1.113, 1.1, 48, 1, true, -span / 2, span), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8 }));
+      label.position.y = 1.05; jarG.add(label);
+    })();
+
+    var floorGlow = new THREE.Mesh(new THREE.PlaneGeometry(7, 7), new THREE.MeshBasicMaterial({
+      map: radialTex([[0, 'rgba(255,214,160,.9)'], [0.5, 'rgba(255,196,140,.3)'], [1, 'rgba(255,190,130,0)']]),
+      transparent: true, depthWrite: false, opacity: 0.5
+    }));
+    floorGlow.rotation.x = -Math.PI / 2; floorGlow.position.y = 0.01; jarG.add(floorGlow);
+
+    var NB = 130, leavesB = leafMesh(NB), B = [];
+    jarG.add(leavesB);
+    for (var bi = 0; bi < NB; bi++) B.push({ a: rnd() * 6.28, h: rnd(), r: rnd(), sp: 0.5 + rnd(), s: 0.8 + rnd() * 0.5 });
+    function updateB(open, time) {
+      for (var i = 0; i < NB; i++) {
+        var b = B[i];
+        var hh = (b.h + time * 0.045 * (0.6 + b.sp)) % 1;
+        var env = Math.sin(Math.PI * hh);
+        var rad = 0.25 + (0.4 + 1.0 * hh) * (0.5 + b.r * 0.7);
+        var ang = b.a + time * 0.7 * (0.4 + b.sp) + hh * 2.6;
+        dummy.position.set(Math.sin(ang) * rad, 2.1 + hh * 3.2 * open, Math.cos(ang) * rad);
+        dummy.rotation.set(time * b.sp + hh * 4, ang, b.a);
+        dummy.scale.setScalar(Math.pow(env, 0.5) * open * b.s);
+        dummy.updateMatrix(); leavesB.setMatrixAt(i, dummy.matrix);
+      }
+      leavesB.instanceMatrix.needsUpdate = true;
+    }
+
+    /* ---------- drifting pollen ---------- */
+    var NP = 160, pPos = new Float32Array(NP * 3), pData = [];
+    for (var qi = 0; qi < NP; qi++) pData.push({ x: (rnd() - 0.5) * 16, y: rnd() * 8, z: (rnd() - 0.5) * 16, sp: 0.08 + rnd() * 0.18, ph: rnd() * 6.28 });
+    var pGeo = new THREE.BufferGeometry(); pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+    var pMat = new THREE.PointsMaterial({ map: softTex, size: 0.2, transparent: true, depthWrite: false, opacity: 0.6, color: 0xf2c36b, sizeAttenuation: true });
+    var pollen = new THREE.Points(pGeo, pMat); pollen.frustumCulled = false; scene.add(pollen);
+
+    /* ---------- per-frame ---------- */
+    var px = 0, py = 0, tpx = 0, tpy = 0, userS = 0;
+    window.addEventListener('pointermove', function (e) {
+      if (e.pointerType === 'mouse') { tpx = e.clientX / window.innerWidth - 0.5; tpy = e.clientY / window.innerHeight - 0.5; }
+    }, { passive: true });
+
+    var W = 1, H = 1;
+    function resize() {
+      W = window.innerWidth; H = window.innerHeight;
+      renderer.setSize(W, H, false);
+      camera.aspect = W / H;
+    }
+    resize();
+
+    function render(t, time, dt, L) {
+      var mobile = W < 760, aspect = W / H;
+      if (!reduce) {
+        px += (tpx - px) * (1 - Math.exp(-dt * 3)); py += (tpy - py) * (1 - Math.exp(-dt * 3));
+        userS += (userLid - userS) * (1 - Math.exp(-dt * 5));
+      } else { userS = userLid; }
+
+      var bloom = kf(t, bloomKF);
+      setBloom(bloom);
+      var sink = kf(t, sinkKF);
+      lotusG.position.y = 1.0 + sink; lotusG.visible = sink > -6.5; lotusG.rotation.y = -0.2 + t * 0.28;
+      inner.intensity = 0.15 + bloom * 1.2;
+      if (lotusG.visible) updateA(kf(t, rainKF), kf(t, aScaleKF), time);
+
+      var pa = kf(t, pondKF);
+      pond.visible = pa > 0.01; pondU.uAlpha.value = pa; pondU.uTime.value = time;
+      pondShadowMat.opacity = 0.3 * pa;
+      for (var i = 0; i < pads.length; i++) pads[i].m.position.y = 0.01 + Math.sin(time * 0.8 + pads[i].ph) * 0.012;
+
+      var jy = kf(t, jarYKF);
+      jarG.position.y = jy; jarG.visible = jy > -6.4; jarG.rotation.y = kf(t, jarRotKF);
+      var oe = Math.max(kf(t, openKF), userS * kf(t, userKF));
+      lid.position.set(1.55 * oe, 2.38 + 1.1 * oe, 0.2 * oe); lid.rotation.z = -0.55 * oe;
+      if (jarG.visible) updateB(oe, time);
+
+      var warm = 1 - clamp((L - 0.2) / 0.5, 0, 1);
+      pMat.color.setRGB(0.95 + 0.05 * warm, 0.76 + 0.2 * warm, 0.42 + 0.35 * warm);
+      for (var k = 0; k < NP; k++) {
+        var d = pData[k];
+        pPos[k * 3] = d.x + Math.sin(time * 0.3 + d.ph) * 0.4;
+        pPos[k * 3 + 1] = ((d.y + time * d.sp) % 8) - 1;
+        pPos[k * 3 + 2] = d.z + Math.cos(time * 0.25 + d.ph) * 0.4;
+      }
+      pGeo.attributes.position.needsUpdate = true;
+
+      var gc = kfRGB(t, glowC);
+      glow.material.color.setRGB(gc[0] / 255, gc[1] / 255, gc[2] / 255);
+      glow.material.opacity = kf(t, glowA);
+
+      var fit = aspect < 1 ? 1 + (1 - aspect) * 0.85 : 1;
+      if (mobile) fit *= 1 + 0.3 * kf(t, [[4.0, 0], [4.5, 1]]);
+      var az = kf(t, camAz) + px * 0.12, el = kf(t, camEl) - py * 0.06, dist = kf(t, camDist) * fit, ty = kf(t, camTy);
+      camera.position.set(Math.sin(az) * Math.cos(el) * dist, ty + Math.sin(el) * dist, Math.cos(az) * Math.cos(el) * dist);
+      camera.lookAt(0, ty, 0);
+      var sx = mobile ? 0 : kf(t, shiftKF), sy = mobile ? 0.2 : 0;
+      camera.setViewOffset(W, H, -sx * W, sy * H, W, H);
+      camera.updateProjectionMatrix();
+      renderer.render(scene, camera);
+    }
+
+    return { render: render, resize: resize };
+  }
+
+  try {
+    G = initScene();
+  } catch (err) {
+    G = null;
+    root.classList.add('no-gl');
+    if (window.console) console.error(err);
+  }
+
+  /* ---------- loop ---------- */
+  var lastNow = 0, tS = null;
+  function frame(now) {
+    window.requestAnimationFrame(frame);
+    var dt = Math.min(0.05, (now - lastNow) / 1000 || 0.016); lastNow = now;
+    var tT = getT();
+    if (tS === null) tS = tT;
+    if (reduce) tS = tT; else tS += (tT - tS) * (1 - Math.exp(-dt * 7));
+    var L = applyChrome(tS);
+    if (G) G.render(tS, reduce ? 1.7 : now / 1000, dt, L);
+  }
+  function onResize() { measure(); if (G) G.resize(); }
+  measure();
+  window.addEventListener('resize', onResize);
+  window.addEventListener('load', measure);
+  if (window.ResizeObserver) { try { new ResizeObserver(measure).observe(document.body); } catch (e) {} }
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(measure);
+  window.requestAnimationFrame(frame);
+
+  /* ---------- order form ---------- */
+  var PRICE = 285000;
+  function fmt(n) { try { return new Intl.NumberFormat('vi-VN').format(n) + ' ₫'; } catch (e) { return n + ' ₫'; } }
+  var qty = document.getElementById('qty'), total = document.getElementById('total');
+  var toastEl = document.getElementById('toast'), toastTimer = 0;
+  function getQty() { var q = parseInt(qty.value, 10); return isNaN(q) ? 1 : clamp(q, 1, 9); }
+  function syncQty() { var q = getQty(); qty.value = q; total.textContent = 'Tạm tính: ' + fmt(q * PRICE); }
+  function toast(msg) {
+    toastEl.textContent = msg; toastEl.classList.add('show');
+    window.clearTimeout(toastTimer);
+    toastTimer = window.setTimeout(function () { toastEl.classList.remove('show'); }, 4200);
+  }
+  document.getElementById('qtyMinus').addEventListener('click', function () { qty.value = getQty() - 1; syncQty(); });
+  document.getElementById('qtyPlus').addEventListener('click', function () { qty.value = getQty() + 1; syncQty(); });
+  qty.addEventListener('change', syncQty);
+  document.getElementById('order').addEventListener('submit', function (e) {
+    e.preventDefault(); syncQty();
+    toast('Bản demo, chưa có giỏ hàng thật. Bạn chọn ' + getQty() + ' hộp, ' + fmt(getQty() * PRICE) + '.');
+  });
+  var lidBtn = document.getElementById('lidBtn');
+  lidBtn.addEventListener('click', function () {
+    userLid = userLid ? 0 : 1;
+    lidBtn.setAttribute('aria-pressed', userLid ? 'true' : 'false');
+    lidBtn.textContent = userLid ? 'Đóng nắp hộp' : 'Mở nắp hộp';
+  });
+})();
+</script>
+
+</body></html>
